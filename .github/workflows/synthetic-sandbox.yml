@@ -1,0 +1,61 @@
+name: Synthetic Sandbox Autopilot
+permissions: {}
+
+on:
+  pull_request:
+    paths:
+      - 'runner.py'
+      - 'tests/**'
+      - 'sandbox/**'
+      - '.github/workflows/synthetic-sandbox.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */2 * * *'
+
+concurrency:
+  group: synthetic-sandbox-autopilot
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Offline tests only
+        run: python -m unittest discover -s tests -v
+
+  propose:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.SANDBOX_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    environment: synthetic-only
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - name: Propose public fixture once
+        env:
+          SANDBOX_ENABLED: ${{ vars.SANDBOX_ENABLED }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python runner.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: sandbox-status-${{ github.run_id }}
+          path: sandbox-status.json
+          if-no-files-found: warn
+          retention-days: 7
