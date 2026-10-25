@@ -186,6 +186,22 @@ class QueueTests(unittest.TestCase):
         with self.assertRaisesRegex(queue.Halt,'Invalid model'):
             queue.generate(APPROVED[0],Path(ROOT,APPROVED[0]['path']).read_text(),'test-only',fake_transport)
 
+    def test_github_normalized_true_runs_enabled_queue(self):
+        for flag in ('true', 'True', 'TRUE', ' true '):
+            with self.subTest(flag=flag), tempfile.TemporaryDirectory() as d:
+                out = Path(d, 'status.json')
+                env = {'SANDBOX_ENABLED': flag, 'GITHUB_REF': 'refs/heads/main',
+                       'GITHUB_REPOSITORY': queue.OWNER_REPO, 'GITHUB_TOKEN': 'test-only',
+                       'GEMINI_API_KEY': 'test-only'}
+                with patch.dict(os.environ, env, clear=True):
+                    with patch('sys.argv', ['autopilot_queue.py', '--output', str(out)]):
+                        with patch('autopilot_queue.GitHub') as github:
+                            with patch('autopilot_queue.work_queue', return_value={'status': 'PROCESSED'}) as worker:
+                                self.assertEqual(queue.main(), 0)
+                                worker.assert_called_once()
+                                github.assert_called_once()
+                self.assertEqual(json.loads(out.read_text())['status'], 'PROCESSED')
+
     def test_default_main_paused_writes_safe_status(self):
         with tempfile.TemporaryDirectory() as d:
             out=Path(d,'state.json')
