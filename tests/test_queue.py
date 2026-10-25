@@ -12,7 +12,8 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import autopilot_queue as queue
 
-ROOT=Path(__file__).resolve().parents[1]
+# Stable, pinned public test inputs; proposed sandbox files may change in PRs.
+ROOT=Path(__file__).resolve().parent / 'fixtures'
 APPROVED=queue.load_approved(ROOT)
 
 
