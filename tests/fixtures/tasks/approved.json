@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "tasks": [
+    {
+      "id": "handbook-v1",
+      "issue": 2,
+      "path": "sandbox/handbook.md",
+      "goal": "Rewrite the entirely fictional project handbook into a practical, clear guide with four stages, responsibilities, entry and exit checks, and an example. Keep it compact and free of real company or personal information.",
+      "sha256": "8014bb7577ae66b22c2b3095877184f72e6ecff206fca1b5c2d1caa2aba9f19c"
+    },
+    {
+      "id": "dashboard-v1",
+      "issue": 3,
+      "path": "sandbox/dashboard.html",
+      "goal": "Improve this static, entirely fictional status dashboard: accessible HTML structure, understandable progress labels, responsive design and a clear legend. Keep it standalone and free of scripts, external resources, and real company or personal information.",
+      "sha256": "15deef872aff6f51c9fd926753c7a06751d2108d0d4abf805a21bf54f00e43da"
+    }
+  ]
+}

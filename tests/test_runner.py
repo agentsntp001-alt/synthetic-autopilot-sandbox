@@ -10,7 +10,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import runner
 
-SOURCE = (Path(__file__).resolve().parents[1] / runner.FILE).read_text()
+FIXTURES = Path(__file__).resolve().parent / 'fixtures'
+SOURCE = (FIXTURES / runner.FILE).read_text()
 UPDATED = runner.MARKER + '# Four fictional steps\n\n1. Invent.\n2. Describe.\n3. Check.\n4. Review.\n'
 
 
@@ -61,10 +62,13 @@ def generated(original, key):
     assert key == 'synthetic-test-key'
     return UPDATED
 
+def run_fixture(api, key, generate_fn=runner.generate):
+    return runner.run(api, key, generate_fn, root=FIXTURES)
+
 
 class Tests(unittest.TestCase):
     def test_fixture_digest_is_pinned(self):
-        self.assertEqual(runner.confirmed_public_fixture(), SOURCE)
+        self.assertEqual(runner.confirmed_public_fixture(root=FIXTURES), SOURCE)
 
     def test_altered_source_fails_closed(self):
         with tempfile.TemporaryDirectory() as d:
@@ -79,39 +83,39 @@ class Tests(unittest.TestCase):
 
     def test_one_draft_pr_happy_path(self):
         api = FakeGitHub()
-        state = runner.run(api, 'synthetic-test-key', generated)
+        state = run_fixture(api, 'synthetic-test-key', generated)
         self.assertEqual(state['status'], 'DRAFT_PR')
         self.assertEqual(api.writes, ['reserve', 'file', 'draft-pr'])
-        self.assertEqual(runner.run(api, '', lambda *_: self.fail('Model repeated'))['status'], 'COMPLETE')
+        self.assertEqual(run_fixture(api, '', lambda *_: self.fail('Model repeated'))['status'], 'COMPLETE')
 
     def test_failed_generation_reserves_and_prevents_repeat(self):
         api = FakeGitHub()
         with self.assertRaisesRegex(runner.Halt, 'model failed'):
-            runner.run(api, 'synthetic-test-key', lambda *_: (_ for _ in ()).throw(runner.Halt('model failed')))
+            run_fixture(api, 'synthetic-test-key', lambda *_: (_ for _ in ()).throw(runner.Halt('model failed')))
         self.assertEqual(api.writes, ['reserve'])
         with self.assertRaisesRegex(runner.Halt, 'manual review'):
-            runner.run(api, 'synthetic-test-key', lambda *_: self.fail('No retry allowed'))
+            run_fixture(api, 'synthetic-test-key', lambda *_: self.fail('No retry allowed'))
         self.assertEqual(api.writes, ['reserve'])
 
     def test_recover_saved_file_without_ai_call(self):
         api = FakeGitHub()
         api.branch = True
         api.changed = True
-        state = runner.run(api, '', lambda *_: self.fail('No second inference'))
+        state = run_fixture(api, '', lambda *_: self.fail('No second inference'))
         self.assertEqual(state['status'], 'DRAFT_PR')
         self.assertEqual(api.writes, ['draft-pr'])
 
     def test_missing_secret_is_blocked_without_branch(self):
         api = FakeGitHub()
         with self.assertRaisesRegex(runner.Halt, 'secret missing'):
-            runner.run(api, '')
+            run_fixture(api, '')
         self.assertEqual(api.writes, [])
 
     def test_remote_changed_before_reservation_is_blocked(self):
         api = FakeGitHub()
         api.changed = True
         with self.assertRaisesRegex(runner.Halt, 'fixture differs'):
-            runner.run(api, 'synthetic-test-key', generated)
+            run_fixture(api, 'synthetic-test-key', generated)
         self.assertEqual(api.writes, [])
 
     def test_default_paused_creates_no_github_call(self):
