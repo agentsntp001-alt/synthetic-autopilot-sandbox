@@ -65,6 +65,10 @@ class ReadOnlyPreflightTests(unittest.TestCase):
 
     def test_cli_read_only_without_activation_or_gemini_key(self):
         api = FakeAPI()
+        # CLI behavior is tested against immutable fixtures, not the PR's
+        # model-written sandbox file; the actual checkout is safety-checked
+        # separately by test_generated_outputs.py.
+        original_inspect = q.inspect_queue
         with tempfile.TemporaryDirectory() as temp:
             status_file = Path(temp, 'status.json')
             with patch.dict(os.environ, {'GITHUB_REF': 'refs/heads/main',
@@ -72,6 +76,8 @@ class ReadOnlyPreflightTests(unittest.TestCase):
                                          'GITHUB_TOKEN': 'fake-github-only',
                                          'SANDBOX_ENABLED': 'false'}, clear=True):
                 with patch('autopilot_queue.GitHub', return_value=api), \
+                        patch('autopilot_queue.inspect_queue',
+                              side_effect=lambda connection, _root: original_inspect(connection, ROOT)), \
                         patch('autopilot_queue.generate') as forbidden:
                     with patch('sys.argv', ['autopilot_queue.py', '--dry-run', '--output', str(status_file)]):
                         self.assertEqual(q.main(), 0)
