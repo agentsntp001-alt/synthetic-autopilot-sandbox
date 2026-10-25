@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 
 from runner import GitHub, Halt, request_json
@@ -29,11 +30,71 @@ HEX_PATTERN = re.compile(r'[a-f0-9]{64}\Z')
 PATH_PATTERN = re.compile(r'sandbox/[A-Za-z0-9_-]+\.(?:md|html)\Z')
 
 
+
+# Static public HTML is a document, not an application. There is no scripting,
+# networking, frames, embeds, forms, click handlers or remote images.
+_ALLOWED_HTML_TAGS = frozenset({
+    'html', 'head', 'meta', 'title', 'style', 'body', 'header', 'main',
+    'section', 'article', 'nav', 'aside', 'footer', 'h1', 'h2', 'h3', 'h4',
+    'p', 'small', 'strong', 'em', 'b', 'i', 'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+    'div', 'span', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+    'caption', 'progress', 'br', 'hr', 'code', 'pre', 'blockquote', 'time',
+})
+_ALLOWED_HTML_ATTRS = frozenset({
+    'lang', 'dir', 'class', 'id', 'role', 'title', 'charset', 'name',
+    'content', 'scope', 'colspan', 'rowspan', 'value', 'max', 'datetime',
+})
+_FORBIDDEN_CONTENT = re.compile(
+    r'(?:AIza[A-Za-z0-9_-]{25,}|gh[pousr]_[A-Za-z0-9_]{20,}|' 
+    r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|' 
+    r'\bSwiss\s+Novatech\b|\b(?:GACP|Swissmedic)\b)',
+    flags=re.IGNORECASE,
+)
+
+
+class _StaticHTML(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.tags = set()
+        self.in_style = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in _ALLOWED_HTML_TAGS:
+            raise Halt('HTML contains forbidden non-static element')
+        self.tags.add(tag)
+        if tag == 'style':
+            self.in_style = True
+        for key, value in attrs:
+            if key not in _ALLOWED_HTML_ATTRS and not key.startswith('aria-'):
+                raise Halt('HTML contains an unsafe attribute')
+            if value and ('javascript:' in value.casefold() or
+                          'data:' in value.casefold() or
+                          'http:' in value.casefold() or 'https:' in value.casefold()):
+                raise Halt('HTML contains an external or executable value')
+
+    def handle_endtag(self, tag):
+        if tag not in _ALLOWED_HTML_TAGS:
+            raise Halt('HTML contains forbidden non-static element')
+        if tag == 'style':
+            self.in_style = False
+
+    def handle_data(self, data):
+        if self.in_style and ('@' in data or '\\' in data or
+                              re.search(r'(?i)\b(?:url|expression|behavior|image-set)\s*\(', data)):
+            raise Halt('HTML contains unsafe stylesheet')
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+    def unknown_decl(self, data):
+        raise Halt('HTML contains unsupported declaration')
+
+
 def load_approved(root):
     path = root / 'tasks' / 'approved.json'
-    if path.stat().st_size > 12000:
-        raise Halt('Approved queue too large')
     try:
+        if path.stat().st_size > 12000:
+            raise Halt('Approved queue too large')
         obj = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, UnicodeError, ValueError):
         raise Halt('Approved queue unreadable') from None
@@ -70,18 +131,31 @@ def validate_fixture(path, content, max_bytes):
         raise Halt('Synthetic marker missing')
     if not 1 <= len(content.encode('utf-8')) <= max_bytes:
         raise Halt('Proposed content exceeds size limit')
+    if chr(0) in content or _FORBIDDEN_CONTENT.search(content):
+        raise Halt('Proposed content contains unsafe or non-synthetic text')
     if path.endswith('.html'):
         lowered = content.casefold()
-        # No script execution, external resources, embedded frames or redirect instructions.
-        for forbidden in ('<script', '<iframe', '<object', '<embed', '<link', '<base',
-                          '<form', '<meta http-equiv', 'http://', 'https://', 'javascript:',
-                          '@import', 'url('):
-            if forbidden in lowered:
-                raise Halt('HTML contains forbidden active or remote content')
-        if re.search(r'\bon[a-z]+\s*=', lowered) or re.search(r'\b(?:src|srcdoc)\s*=', lowered):
-            raise Halt('HTML contains event handlers or embedded content')
+        if any(fragment in lowered for fragment in (
+                'http://', 'https://', 'javascript:', 'data:', '@import',
+                'url(', 'expression(', '-moz-binding', 'behavior:')):
+            raise Halt('HTML contains forbidden active or remote content')
+        if re.search(r'\bon[a-z]+\s*=', lowered):
+            raise Halt('HTML contains forbidden event handlers')
         if '<!doctype html>' not in lowered:
             raise Halt('Proposed HTML document incomplete')
+        parser = _StaticHTML()
+        try:
+            parser.feed(content)
+            parser.close()
+        except (ValueError, TypeError):
+            raise Halt('Invalid HTML document') from None
+        if not {'html', 'head', 'body', 'title', 'main'}.issubset(parser.tags):
+            raise Halt('Proposed HTML missing required document elements')
+    elif path.endswith('.md'):
+        if re.search(r'(?i)\b(?:https?://|javascript:|data:)', content):
+            raise Halt('Markdown contains external or executable links')
+        if re.search(r'(?i)<\s*/?\s*(?:script|iframe|object|embed|svg|img|form|link|meta|style|audio|video|math)\b', content):
+            raise Halt('Markdown contains active HTML')
     return content
 
 
@@ -177,6 +251,8 @@ def recover(api, task, branch):
 
 
 def process_task(api, task, key, root, model_fn=generate):
+    if api.repository != OWNER_REPO:
+        raise Halt('Execution in any other repository is prohibited')
     from urllib.parse import quote
     issue=api.call('GET','/issues/'+str(task['issue']))
     if not is_trusted_open_issue(issue,task['issue']):
@@ -215,6 +291,43 @@ def process_task(api, task, key, root, model_fn=generate):
     return {'task':task['id'],'state':phase,'pr':pr.get('html_url','')}
 
 
+
+def inspect_queue(api, root):
+    """Read-only live GitHub preflight: never creates a branch or calls a model.
+
+    This tests the real connection, trusted Issues and source checksums; it cannot
+    prove billing settings, reviewer independence or environment secret policy.
+    """
+    if api.repository != OWNER_REPO:
+        raise Halt('Execution in any other repository is prohibited')
+    tasks = load_approved(root)
+    result = []
+    for task in tasks:
+        try:
+            issue = api.call('GET', '/issues/' + str(task['issue']))
+            if not is_trusted_open_issue(issue, task['issue']):
+                status = 'SKIP'
+            else:
+                branch = 'auto/synthetic-' + task['id']
+                if existing_pr(api, branch):
+                    status = 'PR_EXISTS'
+                elif api.call('GET', '/git/ref/heads/' + branch):
+                    status = 'REVIEW_RESERVED_BRANCH'
+                else:
+                    source = read_local_fixture(root, task)
+                    validate_remote_original(api, task, source)
+                    status = 'READY'
+        except Halt:
+            status = 'BLOCKED'
+        except Exception:
+            status = 'BLOCKED'
+        result.append({'task': task['id'], 'status': status})
+    verdict = 'BLOCKED' if any(x['status'] == 'BLOCKED' for x in result) else 'PREFLIGHT'
+    return {'status': verdict, 'tasks': result,
+            'read_only': True, 'external_ai_calls': 0, 'writes': 0,
+            'environment_and_billing_verified': False}
+
+
 def work_queue(api, key, root, model_fn=generate):
     if api.repository!=OWNER_REPO:
         raise Halt('Execution in any other repository is prohibited')
@@ -236,16 +349,25 @@ def work_queue(api, key, root, model_fn=generate):
         results.append(out)
         if out['state'] in {'NEW','RECOVERED','BLOCKED'}:
             attempts+=1
-    return {'status':'PROCESSED','queue_size':len(tasks),'attempted':attempts,'results':results}
+    blocked=sum(entry['state']=='BLOCKED' for entry in results)
+    return {'status':'ATTENTION_REQUIRED' if blocked else 'PROCESSED',
+            'queue_size':len(tasks),'attempted':attempts,
+            'blocked_count':blocked,'results':results}
 
 
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--output',default='sandbox-status.json')
+    parser.add_argument('--dry-run',action='store_true',help='Read-only GitHub preflight; no AI or writes')
     args=parser.parse_args()
     status={'status':'PAUSED','reason':'Explicit activation required'}
     try:
-        if os.getenv('SANDBOX_ENABLED')=='true' and os.getenv('GITHUB_REF')=='refs/heads/main':
+        if args.dry_run:
+            if os.getenv('GITHUB_REF') != 'refs/heads/main':
+                raise Halt('Preflight must run on protected main')
+            api=GitHub(os.getenv('GITHUB_REPOSITORY',''),os.getenv('GITHUB_TOKEN',''))
+            status=inspect_queue(api,Path(__file__).resolve().parent)
+        elif os.getenv('SANDBOX_ENABLED')=='true' and os.getenv('GITHUB_REF')=='refs/heads/main':
             api=GitHub(os.getenv('GITHUB_REPOSITORY',''),os.getenv('GITHUB_TOKEN',''))
             status=work_queue(api,os.getenv('GEMINI_API_KEY',''),Path(__file__).resolve().parent)
     except Halt:
@@ -254,7 +376,7 @@ def main():
         status={'status':'BLOCKED','reason':'Unexpected controller failure'}
     Path(args.output).write_text(json.dumps(status,sort_keys=True,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(status,sort_keys=True))
-    return 1 if status['status']=='BLOCKED' else 0
+    return 1 if status['status'] in {'BLOCKED','ATTENTION_REQUIRED'} else 0
 
 if __name__=='__main__':
     sys.exit(main())
