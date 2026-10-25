@@ -152,10 +152,18 @@ def validate_fixture(path, content, max_bytes):
         if not {'html', 'head', 'body', 'title', 'main'}.issubset(parser.tags):
             raise Halt('Proposed HTML missing required document elements')
     elif path.endswith('.md'):
-        if re.search(r'(?i)\b(?:https?://|javascript:|data:)', content):
+        # This fictional fixture needs only plain Markdown. Refuse *all* rendered
+        # hyperlinks/images and raw HTML, including protocol-relative URLs,
+        # reference links, autolinks, and entity/escape-obfuscated schemes.
+        # We are intentionally stricter than GitHub Flavored Markdown because
+        # a rendered PR preview must never fetch a model-selected resource.
+        safe_text = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+        if re.search(r'(?i)(?:https?\s*[:;]|javascript\s*[:;]|data\s*[:;]|\bwww\.)', safe_text) or '// ' in safe_text or '//' in safe_text:
             raise Halt('Markdown contains external or executable links')
-        if re.search(r'(?i)<\s*/?\s*(?:script|iframe|object|embed|svg|img|form|link|meta|style|audio|video|math)\b', content):
-            raise Halt('Markdown contains active HTML')
+        if re.search(r'(?s)!?\[[^\]\n]{0,400}\]\s*(?:\(|\[)', safe_text) or re.search(r'(?m)^\s{0,3}\[[^\]\n]{1,400}\]\s*:', safe_text):
+            raise Halt('Markdown links and images are not allowed')
+        if re.search(r'<\s*[/!a-zA-Z][^>]{0,600}>', safe_text) or re.search(r'&(?:#(?:x[0-9a-f]+|[0-9]+)|[a-z]+);', safe_text, flags=re.IGNORECASE):
+            raise Halt('Markdown raw HTML and entities are not allowed')
     return content
 
 
