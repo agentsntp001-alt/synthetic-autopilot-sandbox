@@ -4,14 +4,149 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fictional project board</title>
-  <style>body{font:16px system-ui;max-width:65rem;margin:2rem auto;padding:0 1rem}main{display:grid;gap:1rem}article{border:1px solid #aaa;border-radius:.75rem;padding:1rem}</style>
+  <title>Fictional Project Status Dashboard</title>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-color: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #cbd5e1;
+      --accent-color: #2563eb;
+      --success-color: #16a34a;
+      --warning-color: #ca8a04;
+      --danger-color: #dc2626;
+    }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      line-height: 1.5;
+      max-width: 65rem;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+    header {
+      margin-bottom: 2rem;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      margin-top: 0;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: var(--card-bg);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-color);
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .badge {
+      display: inline-block;
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+    }
+    .badge-not-started { background-color: var(--text-muted); }
+    .badge-in-progress { background-color: var(--warning-color); }
+    .badge-ready { background-color: var(--accent-color); }
+    .badge-completed { background-color: var(--success-color); }
+    
+    main {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+    article {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    article h2 {
+      font-size: 1.25rem;
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+    }
+    .status-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+      font-size: 0.95rem;
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--bg-color);
+    }
+    .description {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+  </style>
 </head>
 <body>
-  <h1>Fictional project board</h1>
+  <header>
+    <h1>Fictional Project Board</h1>
+    <p class="subtitle">Overview of current synthetic milestones and task statuses.</p>
+    
+    <section class="legend" aria-label="Status Legend">
+      <div class="legend-item"><span class="badge badge-not-started"></span> Not Started</div>
+      <div class="legend-item"><span class="badge badge-in-progress"></span> In Progress</div>
+      <div class="legend-item"><span class="badge badge-ready"></span> Ready to Review</div>
+      <div class="legend-item"><span class="badge badge-completed"></span> Completed</div>
+    </section>
+  </header>
+
   <main>
-    <article><h2>Example A</h2><p>Ready to review</p></article>
-    <article><h2>Example B</h2><p>Not started</p></article>
+    <article>
+      <div>
+        <h2>Example A</h2>
+        <p class="description">Synthesize sample data points and validate markup structures against accessibility guidelines.</p>
+      </div>
+      <div class="status-container">
+        <span class="badge badge-ready" aria-hidden="true"></span>
+        <span>Ready to review</span>
+      </div>
+    </article>
+
+    <article>
+      <div>
+        <h2>Example B</h2>
+        <p class="description">Draft comprehensive system requirements and outline initial component wireframes.</p>
+      </div>
+      <div class="status-container">
+        <span class="badge badge-not-started" aria-hidden="true"></span>
+        <span>Not started</span>
+      </div>
+    </article>
+
+    <article>
+      <div>
+        <h2>Example C</h2>
+        <p class="description">Perform integration testing across multiple simulated viewport dimensions.</p>
+      </div>
+      <div class="status-container">
+        <span class="badge badge-in-progress" aria-hidden="true"></span>
+        <span>In progress</span>
+      </div>
+    </article>
   </main>
 </body>
 </html>
