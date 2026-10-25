@@ -375,7 +375,7 @@ def main():
                 raise Halt('Preflight must run on protected main')
             api=GitHub(os.getenv('GITHUB_REPOSITORY',''),os.getenv('GITHUB_TOKEN',''))
             status=inspect_queue(api,Path(__file__).resolve().parent)
-        elif os.getenv('SANDBOX_ENABLED')=='true' and os.getenv('GITHUB_REF')=='refs/heads/main':
+        elif os.getenv('SANDBOX_ENABLED', '').strip().lower() == 'true' and os.getenv('GITHUB_REF') == 'refs/heads/main':
             api=GitHub(os.getenv('GITHUB_REPOSITORY',''),os.getenv('GITHUB_TOKEN',''))
             status=work_queue(api,os.getenv('GEMINI_API_KEY',''),Path(__file__).resolve().parent)
     except Halt:
