@@ -1,45 +1,66 @@
-# Public synthetic autopilot sandbox
+# Public-only QUINN synthetic autopilot — work queue
 
-A deliberately separate, public-only **technical demonstration**. It is not connected to any private repository, work files, document management, personal data, production environment, or regulated content. Only `sandbox/example.md` can be rewritten by an external model, and then only into a **draft pull request** for manual review. No automatic merges.
+**Status: code implemented in a Draft PR; intentionally NOT activated.** This repository is an isolated, public, fictional-data-only proof of an end-to-end task engine. It has **no access to any private company repository, production document, SharePoint, QMS, or GACP material**. No self-merges. Nothing here is an authorization to process real business data using a free AI tier.
 
-## State
+## What the complete engine will do once independently reviewed and explicitly activated
 
-**INACTIVE.** The workflow schedules a check every two hours at minute 17, but its execution job is skipped unless `SANDBOX_ENABLED=true`. Do not enable until repository protections, environment secrets, budget, independent review, and the exact fixture have been inspected and approved. The local unit tests use stubs and do not contact GitHub or Gemini.
-
-## Create this separate repository
-
-1. On GitHub create a **new, empty, public repository** named `synthetic-autopilot-sandbox`. Owner: the same account as your GitHub Free billing controls. Do **not** fork, clone, import, mirror, or publish the private business repository. Keep its privacy unchanged. Use `main` as default branch.
-2. Upload only the six files in this package, retaining directories. These files contain no company names, project identifiers, real credentials, or private repository URLs. Do not upload local `.env`, keys, documents, QMS/GACP data, or the original PR diff.
-3. Set up a **branch protection rule or active ruleset for `main`**: require a pull request, at least one independent approval, disallow force pushes and deletion, and require relevant status checks once CI exists. Avoid administrative bypass wherever GitHub's settings permit it. Verify rules apply after saving.
-4. Under Settings → Environments create `synthetic-only`. Set Deployment branches/tags to **Selected branches and tags**, with `main` only; verify that non-`main` branches cannot access this environment. Leave the Gemini secret absent until protection has been checked. For unattended two-hour checks, an environment reviewer must not be required on every run; the main-branch review gate protects modifications to the workflow instead.
-5. Confirm this account's **zero-dollar paid-usage budget** remains active. Under Settings → Actions → General enable **Allow GitHub Actions to create and approve pull requests**, leaving default workflow permissions read-only. The workflow uses narrowly declared job permissions. Confirm that your Google AI Studio API project is truly **unbilled / Free Tier**, and that `gemini-3.5-flash-lite` is available to that account. Do not add a billing method or switch to a paid tier.
-6. Only after protections and independent source review: under the **`synthetic-only` environment secrets** add a secret named `GEMINI_API_KEY` using the key directly from Google AI Studio. Do not paste its value into the chat, git, a public issue, source file or an Actions log. Repository-wide Secrets are **not** the recommended location here; use Environment Secrets.
-7. Under Settings → Secrets and variables → Actions → Variables, keep `SANDBOX_ENABLED` absent or `false` until the security review and an explicit activation decision. No workflow dispatch or Gemini call is authorized solely by creating this repository.
-8. After written approval, set `SANDBOX_ENABLED=true` and use Actions → Synthetic Sandbox Autopilot → Run workflow on `main`. Verify one real Gemini call, `sandbox/example.md` as the only changed file, and one new **draft PR**. For PR-created CI, GitHub may require **Approve workflows to run**. Inspect status logs for accidental disclosures. Re-run once to confirm no duplicate API call or PR. Keep the original business repo's pilot PR unchanged and not activated.
-
-## Safety design
-
-- Immutable, source-reviewed goal, source path, and SHA-256 of the public fixture are embedded in `runner.py`. Any edit to that source requires a new review/update of the digest.
-- The workflow exposes the Gemini secret and GitHub write token to the Python proposal step **only**. Third-party setup and artifact actions cannot read these variables from a job-wide environment.
-- Environment secret access is restricted to `main`; the `execute` job checks both the default branch and `SANDBOX_ENABLED`. `permissions: {}` is the workflow-level default.
-- The model receives only the vetted fictional text and hard-coded objective; not issue bodies, private repository content, metadata from other sources, or internal documents. The API key is in an HTTP header.
-- The branch is created *before* calling Gemini. Failed, unmodified, or malformed model output therefore cannot trigger a repeated model call every two hours. Recovery after a file commit can create only a draft PR and cannot call Gemini again.
-- The model cannot run arbitrary code. Its output is a size-limited Markdown replacement retaining the synthetic marker. Future changes still require an independent reviewer.
-- Failure details and external API responses are not printed or included in artifacts; only controlled status categories. Action versions are pinned to verified commit SHAs.
-- The token remains able to write repository contents, not a specific path. Thus repository isolation, branch rules, and independent reviews remain necessary. An owner with admin access can still potentially bypass controls; no arrangement eliminates all compromise risk.
-
-## Limits and known open gates
-
-The sample performs a single external inference for one pre-approved synthetic fixture. It **does not** process any issue from another repository, access private work material, or provide a general-purpose agent. The implementation is locally tested with mocks; no real external call or live GitHub-created PR is yet proven. A human security review of this new public repository, its rules, selected environment branches, free-tier billing status, and action logs is mandatory before activation. A public repository is searchable by others; never put proprietary information in it, including history, source comments, or issue text.
-
-The model choice `gemini-3.5-flash-lite` is listed with a Free Tier in Google's published documentation as of 24 October 2026. Model availability and rates may change. There is no paid fallback in this code; the exact Google project/billing eligibility must still be checked in AI Studio. Free-tier prompts may be used for service improvement, which is acceptable here only because the data is entirely fictional and public.
-
-## Offline test
-
-From this repository root, run:
-
-```sh
-python -m unittest discover -s tests -v
+```text
+GitHub issues #2 / #3             Version-reviewed tasks/approved.json
+         |                                      |
+         +---- trusted owner / open issue -----+
+                              |
+                    Check allowed path, exact
+                    objective and source SHA-256
+                              |
+                    Reserve a per-task branch
+                    BEFORE external model call
+                              |
+                     Gemini 3.5 Flash-Lite
+                  (fictional public fixture only)
+                              |
+                    Validate output and changes
+                              |
+                 Publish exactly ONE file change
+                         as a DRAFT PR
+                              |
+                  HUMAN INDEPENDENT REVIEW
+                          (no auto-merge)
 ```
 
-The tests check paused-by-default, source checksum, one draft PR, branch reservation, no second model call, recovery without inference, invalid output, and credentials not needed for offline tests. They prove only mocked behavior.
+### The work queue
+
+`tasks/approved.json` is a code-reviewed list of tasks, **not a blind command copied from GitHub issue text**. Each row pins an issue number, unique immutable task identifier, allowed sandbox filepath, exact objective, and SHA-256 of the source file. An open trusted-author issue must exist. The issue body/comments are not sent to Gemini. Unapproved, edited, closed or anonymous issues cannot silently change objectives or files. Future tasks require a new reviewed PR into protected `main`.
+
+Two real, fictional development tasks are staged:
+
+- [#2](https://github.com/agentsntp001-alt/synthetic-autopilot-sandbox/issues/2) – turn an invented draft into a practical public work handbook (`sandbox/handbook.md`)
+- [#3](https://github.com/agentsntp001-alt/synthetic-autopilot-sandbox/issues/3) – improve an accessible static dashboard containing exclusively fictional status information (`sandbox/dashboard.html`)
+
+The queue processes at most **two distinct tasks per run** and **eight tasks per reviewed manifest**. Task branches use `auto/synthetic-<id>`. Creating a branch is a **single-use inference reservation**: if a model call fails, there is no automatic retry, even after a scheduled run or crash. An existing saved and valid result can be recovered to a Draft PR *without* repeating a model call. Existing PRs (open or closed) cannot be duplicated. No arbitrary files or executable output are accepted. HTML outputs prohibit remote links, scripts, event handlers and embedded frames.
+
+The controller's hard-coded `OWNER_REPO` prevents use against any other GitHub repository. `runner.py` remains as the earlier, single-task reference; **the scheduled workflow calls `autopilot_queue.py`**.
+
+## Implementation / verification
+
+- Fully offline unit and integration tests: `python -m unittest discover -s tests -v` (no real credentials, network or provider billings).
+- Workflow: `.github/workflows/synthetic-sandbox.yml`. The `verify` job runs on **every PR** to satisfy the required `protect-main` status check, and has read-only contents access. `propose` is skipped unless all conditions hold: running on default `main`, `SANDBOX_ENABLED` explicitly `true`, and protected environment `synthetic-only` is accessible. Third-party actions are pinned by commit SHA; secret and write-capable GitHub token are exposed only to the proposal Python step.
+- `protect-main` is active on `main` with PR required, 1 approval, `verify` required, no bypass actors, no deletion and no force pushes: https://github.com/agentsntp001-alt/synthetic-autopilot-sandbox/rules/25836369 . These protections **do not constitute the independent approval** of this current PR.
+- The model string is `gemini-3.5-flash-lite`, verified from Google's official model catalog. **The model's Free-Tier eligibility for the actual user project must be checked before activation.** Neither this repository nor the workflow adds a paid fallback. Google Free-Tier data handling varies by region and policy. Only public fictional data is allowed here, irrespective of tier.
+
+## Gates before activation (do not skip)
+
+1. Independently review the exact latest PR commit and all changes, including code, workflow permissions and task manifest. All actual modifications to `main` must pass review; no reviewer may approve their own changes.
+2. Confirm `synthetic-only` is a GitHub **Environment** whose **Deployment branches and tags** permit only `main`. Place the `GEMINI_API_KEY` **only in its environment secrets** after the environment restriction is verified. The public repository must never contain the key, and it must never appear in issue text, logs or a chat.
+3. Confirm GitHub account's $0 hard budget blocks paid Actions usage. Independently verify that Google AI Studio project is **unbilled**, the model is available on the **free tier**, and no paid fallback or credit card is connected for this key. Never introduce new paid services or subscription trials.
+4. Ensure repository Actions → General allows Actions to create pull requests. Keep default permissions read-only. Do not loosen `protect-main`, remove required checks, or set any bypass actor.
+5. Only after independent review and explicit activation instruction: merge PR via the protected review process; then set repository variable `SANDBOX_ENABLED=true`, use Actions → Synthetic Sandbox Autopilot → Run workflow on `main`, and observe actual draft PRs for #2/#3. Ensure one file per PR and no secrets in output. A future check must not re-send the same task to Gemini.
+
+### Pause immediately
+
+Set `SANDBOX_ENABLED=false`, or disable the scheduled Actions workflow. The model does not run when the flag is absent or false. Open Draft PRs remain for human review.
+
+## What this does NOT do
+
+The present isolation does **not** make QUINN a fully autonomous Swiss Novatech employee. It cannot access private organizational tasks, files or protected internal documents, and no confidential data may ever cross to a free model through this public repository. A real corporate workflow would need a separately reviewed, private-data-safe architecture and explicit data-governance permission.
+
+The initial PR is not merged; the code is not activated; no Gemini request has yet been made; the new Environment, billing/project eligibility and independent PR approval remain to be verified. This README is the source of truth for what the sample can and cannot do.
