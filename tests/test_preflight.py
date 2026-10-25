@@ -7,8 +7,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent / 'fixtures'
+sys.path.insert(0, str(PROJECT_ROOT))
 import autopilot_queue as q
 from test_queue import FakeAPI
 
